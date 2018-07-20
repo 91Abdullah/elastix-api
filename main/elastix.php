@@ -15,7 +15,7 @@ class Elastix{
 			}
 		}
 		fclose($fh);
-		$this->hostname = "localhost";
+		$this->hostname = "127.0.0.1";
 		$this->username = "root";
 		$this->password = $data["mysqlrootpwd"];
 		$this->db = null;
@@ -30,6 +30,7 @@ class Elastix{
 	private function _get_db_connection($dbname){
 		try {
 			$this->db = new PDO("mysql:host=".$this->hostname.";dbname=".$dbname.";charset=utf8", $this->username, $this->password);
+			$this->db->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
 			$this->db->query("SET CHARACTER SET utf8");
 		} catch (PDOException $e) {
 			echo $e->getMessage();
@@ -53,6 +54,35 @@ class Elastix{
 		$where .= $custom;
 		return $where;
 	}
+
+	
+	public function get_cdr_recordings()
+	{
+		try {
+                        $this->_get_db_connection("asteriskcdrdb");
+                        $start_date             = $_GET["start_date"];
+                        $end_date                       = $_GET["end_date"];
+                        $field_name             = $_GET["field_name"];
+                        $field_pattern          = $_GET["field_pattern"];
+                        $status                         = $_GET["status"];
+                        $limit                          = $_GET["limit"];
+                        $custom                         = $_GET["custom"];
+                        $where_expression       = $this->_cdr_where_expression($start_date, $end_date, $field_name, $field_pattern, $status, $custom);
+                        $limit                          = $limit > 0 ? " LIMIT ".$limit." " : "";
+                        $sql_cmd        = "SELECT * FROM cdr WHERE $where_expression AND recordingfile <> '' ORDER BY calldate DESC $limit";
+                        //echo json_encode($sql_cmd);
+			$stmt           = $this->db->query($sql_cmd);
+                        $stmt->execute();
+                        $result = (array)$stmt->fetchAll(PDO::FETCH_ASSOC);
+                        header('Content-Type: application/json');
+                        echo json_encode($result);
+                } catch (Exception $e) {
+                        echo $e->getMessage();
+        	}
+
+	}	
+
+
 	public function get_cdr(){
 		/*
 			+---------------+
@@ -85,21 +115,28 @@ class Elastix{
 		*/
 		try {
 			$this->_get_db_connection("asteriskcdrdb");
-			$start_date 		= $_POST["start_date"];
-			$end_date 			= $_POST["end_date"];
-			$field_name 		= $_POST["field_name"];
-			$field_pattern 		= $_POST["field_pattern"];
-			$status 			= $_POST["status"];
-			$limit 				= $_POST["limit"];
-			$custom 			= $_POST["custom"];
+			$start_date 		= $_GET["start_date"];
+			$end_date 			= $_GET["end_date"];
+			$field_name 		= $_GET["field_name"];
+			$field_pattern 		= $_GET["field_pattern"];
+			$status 			= $_GET["status"];
+			$limit 				= $_GET["limit"];
+			$custom 			= $_GET["custom"];
 			$where_expression 	= $this->_cdr_where_expression($start_date, $end_date, $field_name, $field_pattern, $status, $custom);
 			$limit 				= $limit > 0 ? " LIMIT ".$limit." " : "";
 			$sql_cmd 	= "SELECT * FROM cdr WHERE $where_expression ORDER BY calldate DESC $limit";
-			$stmt 		= $this->db->prepare($sql_cmd);
-			$stmt->execute();
+			$stmt 		= $this->db->query($sql_cmd);
+			//$stmt->execute();
 			$result = (array)$stmt->fetchAll(PDO::FETCH_ASSOC);
 			header('Content-Type: application/json');
 			echo json_encode($result);
+		/*try {
+			$this->_get_db_connection("asteriskcdrdb");
+			$sql_cmd	= "SELECT * FROM cdr";
+			$stmt		= $this->db->prepare($sql_cmd);
+			$result = (array)$stmt->fetchAll(PDO::FETCH_ASSOC);
+                        header('Content-Type: application/json');
+                        echo json_encode($this->db->query("SELECT * FROM cdr")->fetchAll(PDO::FETCH_ASSOC));*/
 		} catch (Exception $e) {
 			echo $e->getMessage();
 		}
@@ -109,10 +146,11 @@ class Elastix{
 			$name = "/2015/12/08/out-05355620760-101-20151208-102449-1449563089.106.wav";
 		*/
 		$is_exist = true;
-		$name 		= $_POST["name"];
+		$name 		= $_GET["name"];
 		$directory 	= "/var/spool/asterisk/monitor";
-		$file = $directory;
-		$file .= $name;
+		//$file = $directory;
+		//$file .= $name;
+		$file = $name; // changed as name was already up to the mark
 		if (!file_exists($file)) {
 			$path 	= pathinfo($file);
 			$dn 	= $path["dirname"];
@@ -178,33 +216,34 @@ class Elastix{
 	public function add_sip_extension(){
 		$this->_get_db_connection("asterisk");
 		$dict = array(
-			"name" => $_POST["name"],
-			"deny" => $_POST["deny"],
-			"secret" => $_POST["secret"],
-			"dtmfmode" => $_POST["dtmfmode"],
-			"canreinvite" => $_POST["canreinvite"],
-			"context" => $_POST["context"],
-			"host" => $_POST["host"],
-			"trustrpid" => $_POST["trustrpid"],
-			"sendrpid" => $_POST["sendrpid"],
-			"type" => $_POST["type"],
-			"nat" => $_POST["nat"],
-			"port" => $_POST["port"],
-			"qualify" => $_POST["qualify"],
-			"qualifyfreq" => $_POST["qualifyfreq"],
-			"transport" => $_POST["transport"],
-			"avpf" => $_POST["avpf"],
-			"icesupport" => $_POST["icesupport"],
-			"encryption" => $_POST["encryption"],
-			"callgroup" => $_POST["callgroup"],
-			"pickupgroup" => $_POST["pickupgroup"],
-			"dial" => $_POST["dial"],
-			"mailbox" => $_POST["mailbox"],
-			"permit" => $_POST["permit"],
-			"callerid" => $_POST["callerid"],
-			"callcounter" => $_POST["callcounter"],
-			"faxdetect" => $_POST["faxdetect"],
-			"account" => $_POST["account"]
+			"name" => $_GET["name"],
+			"deny" => $_GET["deny"],
+			"secret" => $_GET["secret"],
+			"dtmfmode" => $_GET["dtmfmode"],
+			"canreinvite" => $_GET["canreinvite"],
+			"context" => $_GET["context"],
+			"host" => $_GET["host"],
+			"trustrpid" => $_GET["trustrpid"],
+			"sendrpid" => $_GET["sendrpid"],
+			"type" => $_GET["type"],
+			"nat" => $_GET["nat"],
+			"port" => $_GET["port"],
+			"qualify" => $_GET["qualify"],
+			"qualifyfreq" => $_GET["qualifyfreq"],
+			"transport" => $_GET["transport"],
+			"avpf" => $_GET["avpf"],
+			"icesupport" => $_GET["icesupport"],
+			"encryption" => $_GET["encryption"],
+			"callgroup" => $_GET["callgroup"],
+			"pickupgroup" => $_GET["pickupgroup"],
+			"dial" => $_GET["dial"],
+			"mailbox" => $_GET["mailbox"],
+			"permit" => $_GET["permit"],
+			"callerid" => $_GET["callerid"],
+			"callcounter" => $_GET["callcounter"],
+
+			"faxdetect" => $_GET["faxdetect"],
+			"account" => $_GET["account"]
 		);
 		$ext = new Extension($dict, "insert");
 		$stmt0 = $this->db->prepare($ext->select_sip_sqlscript());
@@ -215,40 +254,42 @@ class Elastix{
 			$stmt2 = $this->db->exec($ext->insert_into_devices_sqlscript());
 			$stmt3 = $this->db->exec($ext->insert_into_sip_sqlscript());
 			$this->apply_config();
+			// echo '{"status": '.var_dump($row).', "code": 200}';
 		}
-		header('Content-Type: application/json');
-		echo '{"status": "INSERT OK", "code": 200}';
+		// header('Content-Type: application/json');
+		// echo '{"status": "INSERT OK", "code": 200}';
+		echo '{"status": '.var_dump($row).', "code": 200}';
 	}
 	public function update_sip_extension(){
 		$this->_get_db_connection("asterisk");
 		$dict = array(
-			"name" => $_POST["name"],
-			"deny" => $_POST["deny"],
-			"secret" => $_POST["secret"],
-			"dtmfmode" => $_POST["dtmfmode"],
-			"canreinvite" => $_POST["canreinvite"],
-			"context" => $_POST["context"],
-			"host" => $_POST["host"],
-			"trustrpid" => $_POST["trustrpid"],
-			"sendrpid" => $_POST["sendrpid"],
-			"type" => $_POST["type"],
-			"nat" => $_POST["nat"],
-			"port" => $_POST["port"],
-			"qualify" => $_POST["qualify"],
-			"qualifyfreq" => $_POST["qualifyfreq"],
-			"transport" => $_POST["transport"],
-			"avpf" => $_POST["avpf"],
-			"icesupport" => $_POST["icesupport"],
-			"encryption" => $_POST["encryption"],
-			"callgroup" => $_POST["callgroup"],
-			"pickupgroup" => $_POST["pickupgroup"],
-			"dial" => $_POST["dial"],
+			"name" => $_GET["name"],
+			"deny" => $_GET["deny"],
+			"secret" => $_GET["secret"],
+			"dtmfmode" => $_GET["dtmfmode"],
+			"canreinvite" => $_GET["canreinvite"],
+			"context" => $_GET["context"],
+			"host" => $_GET["host"],
+			"trustrpid" => $_GET["trustrpid"],
+			"sendrpid" => $_GET["sendrpid"],
+			"type" => $_GET["type"],
+			"nat" => $_GET["nat"],
+			"port" => $_GET["port"],
+			"qualify" => $_GET["qualify"],
+			"qualifyfreq" => $_GET["qualifyfreq"],
+			"transport" => $_GET["transport"],
+			"avpf" => $_GET["avpf"],
+			"icesupport" => $_GET["icesupport"],
+			"encryption" => $_GET["encryption"],
+			"callgroup" => $_GET["callgroup"],
+			"pickupgroup" => $_GET["pickupgroup"],
+			"dial" => $_GET["dial"],
 			"mailbox" => $_POST["mailbox"],
-			"permit" => $_POST["permit"],
-			"callerid" => $_POST["callerid"],
-			"callcounter" => $_POST["callcounter"],
-			"faxdetect" => $_POST["faxdetect"],
-			"account" => $_POST["account"]
+			"permit" => $_GET["permit"],
+			"callerid" => $_GET["callerid"],
+			"callcounter" => $_GET["callcounter"],
+			"faxdetect" => $_GET["faxdetect"],
+			"account" => $_GET["account"]
 		);
 		$ext = new Extension($dict, "update");
 		$stmt1 = $this->db->exec($ext->update_sip_sqlscript());
@@ -259,7 +300,7 @@ class Elastix{
 	}
 	public function delete_sip_extension(){
 		$this->_get_db_connection("asterisk");
-		$dict = array("account" => $_POST["account"]);
+		$dict = array("account" => $_GET["account"]);
 		$ext = new Extension($dict, "delete");
 		$stmt1 = $this->db->exec($ext->delete_sip_sqlscript());
 		$stmt2 = $this->db->exec($ext->delete_users_sqlscript());

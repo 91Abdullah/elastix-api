@@ -6,7 +6,7 @@ class APICommand
 {
 	public function __construct($rkey, $cmd)
 	{
-		$this->key = 'YOUR_SECRETKEY_50_RANDOM_CHARS';
+		$this->key = 'abdullah';
 		$this->rkey = $rkey;
 		$this->cmd = $cmd;
 	}
@@ -44,6 +44,10 @@ class APICommand
 				case "cdrreport":
 					$ela = new Elastix();
 					$ela->get_cdr();
+					break;
+				case "cdrreportwithrecordings":
+					$ela = new Elastix();
+					$ela->get_cdr_recordings();
 					break;
 				case "getwavfile":
 					$ela = new Elastix();
